@@ -1,0 +1,35 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# never commit user data (public repo)
+samples/
+logs/
+*.wav
+*.mp3
+*.m4a
+*.mp4
+*.webm
+
+# os / tooling
+.DS_Store
+node_modules/
+dist/
+__pycache__/
+.venv/
+*.pyc
+.claude/settings.local.json
+
+# uploads (raw user files never committed)
+uploads/
+
+# agent / planning files stay local (repo = source code + technical docs only)
+CLAUDE.md
+AGENTS.md
+PROGRESS.md
+.claude/
+docs/*
+!docs/02_meta_models_api.md
+!docs/03_architecture.md
+!docs/05_stack_deployment.md

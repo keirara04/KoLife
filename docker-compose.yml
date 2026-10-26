@@ -1,0 +1,31 @@
+# Local dev: builds from source. Day-to-day you can also run `npm run dev` + `uv run uvicorn` directly.
+services:
+  web:
+    build: ./web
+    ports: ["8080:80"]
+    depends_on: [api]
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://kolife:kolife@postgres:5432/kolife
+      REDIS_URL: redis://redis:6379/0
+    ports: ["8000:8000"]
+    depends_on: [postgres, redis]
+  worker:
+    build: ./api
+    command: arq app.worker.WorkerSettings
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://kolife:kolife@postgres:5432/kolife
+      REDIS_URL: redis://redis:6379/0
+    depends_on: [postgres, redis]
+  postgres:
+    image: postgres:16
+    environment: { POSTGRES_USER: kolife, POSTGRES_PASSWORD: kolife, POSTGRES_DB: kolife }
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+volumes: { pgdata: {} }
