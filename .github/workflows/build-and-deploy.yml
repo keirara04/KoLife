@@ -36,8 +36,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Dokploy staging
-        env: { HOOK: '${{ secrets.DOKPLOY_STAGING_HOOK }}' }
-        run: if [ -n "$HOOK" ]; then curl -fsS --proto =https -X POST "$HOOK"; else echo "DOKPLOY_STAGING_HOOK not set, skipping"; fi
+        # Dokploy API (works with Autodeploy off). Tunnel exposes only /api/compose.deploy.
+        env:
+          KEY: '${{ secrets.DOKPLOY_STAGING_API_KEY }}'
+          COMPOSE_ID: '${{ secrets.DOKPLOY_STAGING_COMPOSE_ID }}'
+        run: |
+          if [ -z "$KEY" ] || [ -z "$COMPOSE_ID" ]; then echo "staging deploy secrets not set, skipping"; exit 0; fi
+          curl -sS --fail-with-body --proto =https -X POST "https://kolife-deploy.hakeemiridza.com/api/compose.deploy" \
+            -H "x-api-key: $KEY" -H "Content-Type: application/json" \
+            -d "{\"composeId\":\"$COMPOSE_ID\"}"
   deploy-prod:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
@@ -45,4 +52,4 @@ jobs:
     steps:
       - name: Trigger Dokploy prod
         env: { HOOK: '${{ secrets.DOKPLOY_PROD_HOOK }}' }
-        run: if [ -n "$HOOK" ]; then curl -fsS --proto =https -X POST "$HOOK"; else echo "DOKPLOY_PROD_HOOK not set, skipping"; fi
+        run: if [ -n "$HOOK" ]; then curl -sS --fail-with-body --proto =https -X POST "$HOOK"; else echo "DOKPLOY_PROD_HOOK not set, skipping"; fi
