@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "gen:api": "cd ../api && uv run python -c \"import json; from app.main import app; print(json.dumps(app.openapi(), indent=1))\" > ../web/src/api/openapi.json && cd ../web && npx -y openapi-typescript@7.13.0 src/api/openapi.json -o src/api/schema.d.ts"
   },
   "dependencies": {
     "react": "^19.3.1",

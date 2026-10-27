@@ -1,7 +1,9 @@
 import { useState } from 'react'
 
-// Mirrors DocumentOut in api/app/routes/documents.py (hand-written until openapi-typescript is added).
-type Doc = { id: string; status: 'pending' | 'confirmed'; counts: Record<string, number>; payload_hash: string }
+import type { components } from './api/schema'
+
+// Generated from the FastAPI schema: `npm run gen:api` after changing api routes.
+type Doc = components['schemas']['DocumentOut']
 
 const LABELS: Record<string, string> = {
   ARC: 'registration number',
@@ -21,6 +23,25 @@ function summary(counts: Record<string, number>): string {
   return parts.length ? `Blacked out: ${parts.join(', ')}.` : 'No ID numbers or faces found.'
 }
 
+// Phone photos are ~4000 px / 3-4 MB; the server caps at 2000 px anyway, so shrink before upload.
+// Falls back to the original file if the browser can't decode it (e.g. HEIC in desktop Chrome).
+async function shrink(file: File): Promise<Blob> {
+  const MAX = 2000
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height))
+    if (scale === 1 && file.size < 2_000_000) return file
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bmp.width * scale)
+    canvas.height = Math.round(bmp.height * scale)
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, 'image/jpeg', 0.92))
+    return blob ?? file
+  } catch {
+    return file
+  }
+}
+
 async function errorText(r: Response): Promise<string> {
   try {
     return ((await r.json()) as { detail?: string }).detail ?? `Error ${r.status}`
@@ -38,7 +59,8 @@ export default function DocumentCapture() {
     setBusy(true)
     setError('')
     try {
-      const r = await fetch('/api/documents', { method: 'POST', body: file, headers: { 'Content-Type': file.type } })
+      const body = await shrink(file)
+      const r = await fetch('/api/documents', { method: 'POST', body, headers: { 'Content-Type': body.type || 'application/octet-stream' } })
       if (!r.ok) throw new Error(await errorText(r))
       setDoc((await r.json()) as Doc)
     } catch (e) {
