@@ -17,6 +17,7 @@ services:
       BASETEN_API_KEY: ${BASETEN_API_KEY:-}
       SPEND_CAP_USD_TOTAL: ${SPEND_CAP_USD_TOTAL:-120}
       SPEND_CAP_USD_DAILY: ${SPEND_CAP_USD_DAILY:-20}
+      MASTER_KEY: ${MASTER_KEY}  # documents encrypted at rest; uploads fail without it
       DATABASE_URL: postgresql+asyncpg://kolife:${POSTGRES_PASSWORD}@postgres:5432/kolife
       REDIS_URL: redis://redis:6379/0
     depends_on: [postgres, redis]

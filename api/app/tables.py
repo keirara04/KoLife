@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, LargeBinary, Numeric, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Index, Integer, LargeBinary, Numeric, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,9 +40,9 @@ class Document(Base):
     # uuid4 hex: also the request_id of every model call about this document (trace + audit join)
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | confirmed
-    # ponytail: redacted PNG in bytea, unencrypted; envelope encryption + 7-day purge per docs/03 §5 later
-    image_png: Mapped[bytes] = mapped_column(LargeBinary)
-    text: Mapped[str] = mapped_column(Text)  # OCR text with placeholders (gate input, not shown in UI)
+    # redacted PNG + OCR text (placeholders), AES-GCM encrypted with the row id as AAD (app.core.crypto)
+    image_enc: Mapped[bytes] = mapped_column(LargeBinary)
+    text_enc: Mapped[bytes] = mapped_column(LargeBinary)
     counts: Mapped[dict] = mapped_column(JSONB)
     payload_hash: Mapped[str] = mapped_column(String(64))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

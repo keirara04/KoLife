@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     spend_cap_usd_daily: float = 20
     database_url: str = "postgresql+asyncpg://kolife:kolife@localhost:5432/kolife"
     redis_url: str = "redis://localhost:6379/0"
+    master_key: str = ""  # base64 32 bytes, encrypts documents at rest
 
 
 settings = Settings()

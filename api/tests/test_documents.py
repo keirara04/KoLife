@@ -6,16 +6,24 @@
 import io
 import os
 import shutil
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
 import pytest
+from cryptography.exceptions import InvalidTag
 from PIL import Image
+from sqlalchemy import update
 
 import app.redaction as redaction
+from app.config import settings
+from app.core.crypto import decrypt
+from app.db import SessionLocal
 from app.main import app
 from app.redaction.ocr import ocr_lines
 from app.redaction.text import find_ids
+from app.tables import Document
+from app.worker import purge_documents
 
 FIXTURE = Path(__file__).parent / "fixtures" / "nhis_bill_synthetic.png"
 pytestmark = pytest.mark.skipif(
@@ -62,3 +70,34 @@ async def test_upload_preview_confirm_gate(client):
 async def test_rejects_non_images(client):
     r = await client.post("/api/documents", content=b"not an image", headers={"Content-Type": "image/png"})
     assert r.status_code == 415
+
+
+async def test_heic_upload_and_encrypted_at_rest(client):
+    buf = io.BytesIO()
+    Image.open(FIXTURE).save(buf, "HEIF")  # iPhone Photos format
+    r = await client.post("/api/documents", content=buf.getvalue(), headers={"Content-Type": "image/heic"})
+    assert r.status_code == 200, r.text
+    doc_id = r.json()["id"]
+    async with SessionLocal() as s:
+        row = await s.get(Document, doc_id)
+    assert not row.image_enc.startswith(b"\x89PNG") and b"[ARC_1]" not in row.text_enc  # ciphertext at rest
+    with pytest.raises(InvalidTag):  # blob is bound to its row id
+        decrypt(row.image_enc, "some-other-id")
+    await client.delete(f"/api/documents/{doc_id}")
+
+
+async def test_purge_drops_documents_older_than_7_days(client):
+    r = await client.post("/api/documents", content=FIXTURE.read_bytes(), headers={"Content-Type": "image/png"})
+    doc_id = r.json()["id"]
+    async with SessionLocal() as s:
+        await s.execute(update(Document).where(Document.id == doc_id)
+                        .values(created_at=datetime.now(timezone.utc) - timedelta(days=8)))
+        await s.commit()
+    assert await purge_documents() >= 1
+    assert (await client.get(f"/api/documents/{doc_id}")).status_code == 404
+
+
+async def test_upload_refused_without_key_before_any_spend(client, monkeypatch):
+    monkeypatch.setattr(settings, "master_key", "")
+    r = await client.post("/api/documents", content=FIXTURE.read_bytes(), headers={"Content-Type": "image/png"})
+    assert r.status_code == 503

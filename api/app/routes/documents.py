@@ -1,11 +1,13 @@
 import io
 import uuid
+from typing import Literal
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
 
+from app.core.crypto import decrypt, encrypt, key_configured
 from app.core.spend import SpendCapExceeded
 from app.db import SessionLocal
 from app.redaction import RedactionError, redact_document
@@ -18,7 +20,7 @@ MAX_BYTES = 20 * 1024 * 1024
 
 class DocumentOut(BaseModel):
     id: str
-    status: str
+    status: Literal["pending", "confirmed"]
     counts: dict[str, int]
     payload_hash: str
 
@@ -40,6 +42,8 @@ async def upload(request: Request) -> DocumentOut:
     """Raw image bytes as the body (no multipart). Redacts in-request (~8 s), stores only the
     redacted result, returns counts for the preview. The raw image is never persisted."""
     # ponytail: redaction runs in the request; move to the ARQ worker if uploads queue up
+    if not key_configured():  # check before any SAM spend
+        raise HTTPException(503, "Uploads are not configured on this server yet.")
     if int(request.headers.get("content-length") or 0) > MAX_BYTES:
         raise HTTPException(413, "image too large (max 20 MB)")
     raw = await request.body()
@@ -59,7 +63,8 @@ async def upload(request: Request) -> DocumentOut:
         raise HTTPException(503, "Daily AI budget reached. Please try again tomorrow.")
     except httpx.HTTPError:  # SAM 429/5xx/timeout; retries come with the Oct 29 model-call wrapper
         raise HTTPException(502, "AI service is busy, please try again in a moment.")
-    doc = Document(id=doc_id, image_png=red.image_png, text=red.text, counts=red.counts,
+    doc = Document(id=doc_id, image_enc=encrypt(red.image_png, doc_id), text_enc=encrypt(red.text.encode(), doc_id),
+                   counts=red.counts,
                    payload_hash=red.payload_hash, status="pending")
     async with SessionLocal() as s:
         s.add(doc)
@@ -75,7 +80,7 @@ async def get(doc_id: str) -> DocumentOut:
 @router.get("/documents/{doc_id}/image")
 async def image(doc_id: str) -> Response:
     doc = await get_doc(doc_id)
-    return Response(doc.image_png, media_type="image/png", headers={"Cache-Control": "private, no-store"})
+    return Response(decrypt(doc.image_enc, doc.id), media_type="image/png", headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("/documents/{doc_id}/confirm", response_model=DocumentOut)

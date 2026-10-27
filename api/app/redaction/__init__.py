@@ -7,7 +7,9 @@ from dataclasses import dataclass
 
 import httpx
 from PIL import Image, ImageOps
+from pillow_heif import register_heif_opener
 
+from app.core.crypto import decrypt
 from app.db import SessionLocal
 from app.redaction.image import SAM_CONCEPTS, black_out, sam_boxes
 from app.redaction.ocr import ocr_lines
@@ -15,6 +17,7 @@ from app.redaction.text import find_ids, redact_text
 from app.tables import Document
 
 
+register_heif_opener()  # iPhone HEIC/HEIF uploads open like any other image
 MAX_SIDE = 2000
 
 
@@ -78,7 +81,8 @@ async def require_confirmed(doc_id: str) -> RedactedDoc:
         doc = await s.get(Document, doc_id)
     if doc is None or doc.status != "confirmed":
         raise NotConfirmed(f"document {doc_id} is not confirmed")
-    return RedactedDoc(doc.image_png, doc.text, doc.counts, doc.payload_hash)
+    return RedactedDoc(decrypt(doc.image_enc, doc_id), decrypt(doc.text_enc, doc_id).decode(), doc.counts,
+                       doc.payload_hash)
 
 
 def audit_meta(doc_id: str, doc: RedactedDoc) -> dict:

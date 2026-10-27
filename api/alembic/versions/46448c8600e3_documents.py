@@ -24,13 +24,14 @@ def upgrade() -> None:
     op.create_table('documents',
     sa.Column('id', sa.String(length=32), nullable=False),
     sa.Column('status', sa.String(length=16), nullable=False),
-    sa.Column('image_png', sa.LargeBinary(), nullable=False),
-    sa.Column('text', sa.Text(), nullable=False),
+    sa.Column('image_enc', sa.LargeBinary(), nullable=False),
+    sa.Column('text_enc', sa.LargeBinary(), nullable=False),
     sa.Column('counts', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('payload_hash', sa.String(length=64), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_index('ix_documents_created_at', 'documents', ['created_at'])
     # ### end Alembic commands ###
 
 

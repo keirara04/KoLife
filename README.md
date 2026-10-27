@@ -25,9 +25,10 @@ React + TypeScript + Vite PWA · FastAPI + SQLAlchemy/Alembic + Postgres · ARQ/
 cp .env.example .env            # add META_API_KEY etc.
 brew install tesseract tesseract-lang   # local OCR for redaction (Linux: apt install tesseract-ocr tesseract-ocr-kor)
 docker compose up postgres redis -d   # or a local Postgres: createdb kolife
-cd api && uv sync && uv run alembic upgrade head
+cd api && uv sync && uv run alembic upgrade head   # needs MASTER_KEY in .env (see api/app/core/crypto.py)
 uv run uvicorn app.main:app --reload   # http://localhost:8000/api/health
 cd web && npm install && npm run dev                         # http://localhost:5173
+npm run gen:api                                              # regenerate web/src/api/schema.d.ts after api changes
 ```
 Or everything in containers: `docker compose up --build` → http://localhost:8080
 
