@@ -1,7 +1,7 @@
 """Day-1 smoke test: one live call per model, prints status + usage + cost.
 
 Run from repo root:
-    cd api && uv run --with meta-sam-parser python ../scripts/smoke_test.py
+    cd api && uv run python ../scripts/smoke_test.py
 
 Checks: Wonder (expected 404 from KR), Spark 1.3 plain + structured output (text.format),
 Muse Image -> SAM 3.1 on that image (mask decoded in Python), Voice Transcribe on a
@@ -174,7 +174,7 @@ def check_sam(image: Path) -> None:
     try:
         from meta_sam_parser import SegmentationMask, decode_mask_to_raster
     except ImportError:
-        record("sam 3.1", True, cost, note + " | mask NOT decoded (run with --with meta-sam-parser)")
+        record("sam 3.1", True, cost, note + " | mask NOT decoded (meta-sam-parser missing; uv sync)")
         return
     h, w, payload = masks[0]
     enc = "lossless" if payload.startswith("~") else "one_bit"
