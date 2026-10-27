@@ -10,7 +10,7 @@ services:
     environment: &appenv
       META_API_KEY: ${META_API_KEY}
       META_BASE_URL: ${META_BASE_URL:-https://api.meta.ai/v1}
-      ORCH_MODEL: ${ORCH_MODEL:-muse-spark-1.3}
+      ORCH_MODEL: ${ORCH_MODEL:-muse-wonder-1.0}
       WORKER_MODEL: ${WORKER_MODEL:-muse-spark-1.3}
       BASETEN_API_KEY: ${BASETEN_API_KEY:-}
       SPEND_CAP_USD_TOTAL: ${SPEND_CAP_USD_TOTAL:-120}

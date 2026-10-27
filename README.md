@@ -23,8 +23,9 @@ React + TypeScript + Vite PWA · FastAPI + SQLAlchemy/Alembic + Postgres · ARQ/
 ## Run locally
 ```bash
 cp .env.example .env            # add META_API_KEY etc.
-docker compose up postgres redis -d
-cd api && uv sync && uv run uvicorn app.main:app --reload   # http://localhost:8000/api/health
+docker compose up postgres redis -d   # or a local Postgres: createdb kolife
+cd api && uv sync && uv run alembic upgrade head
+uv run uvicorn app.main:app --reload   # http://localhost:8000/api/health
 cd web && npm install && npm run dev                         # http://localhost:5173
 ```
 Or everything in containers: `docker compose up --build` → http://localhost:8080

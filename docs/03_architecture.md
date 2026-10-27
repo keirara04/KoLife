@@ -51,7 +51,7 @@
         │
 6. Show and route          steps, who to call (1345/1350/132 KR · EMGS/JIM/997 MY), share card, map pin
 ```
-Every model call is logged (model, tokens, cached tokens, cost, latency) and streamed to the **trace panel**.
+Every model call is logged (model, tokens, cached tokens, cost, latency) and streamed to the **trace panel**. Built (Oct 27): `app.core.spend.record_call()` writes a `model_calls` row (+ `logs/usage.jsonl`); `check_spend_cap()` (KST day + total) before each call; `GET /api/trace/{request_id}` = SSE that replays + follows rows (0.5 s DB poll, 15 s pings); `GET /api/spend`. Mock emitter: `scripts/trace_demo.py --keep`.
 
 Explain-aloud branch (walkthrough): tap point on the redacted document → SAM 3.1 segments that region (point/phrase prompt) → UI highlight → Spark explains in user's language (cached per region) → browser `speechSynthesis` reads it aloud → optional voice follow-up recorded in browser → ffmpeg → Voice Transcribe → Wonder routes → spoken answer + case event. All calls logged to the trace panel.
 
@@ -143,6 +143,8 @@ Confirm exact request/response shapes for (a) Responses function tools, (b) `sam
 | Spark workers | ~$35 |
 | SAM / Voice / Image | ~$10 |
 | Demo-day buffer | ~$15 (don't touch before Nov 4) |
+
+Staging and prod share one Meta key / one $150 pool → set `SPEND_CAP_USD_TOTAL` per env so the sum stays under the pool (staging ~$30–40, prod the rest).
 
 Rules: log `usage` + computed cost for **every** call (`model_calls` table + `logs/usage.jsonl`); `scripts/cost_report.py` per model per day; **mock/recorded responses** for UI work and tests; small sample media in tests; check dashboard daily.
 
