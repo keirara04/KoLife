@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     meta_api_key: str = ""
     meta_base_url: str = "https://api.meta.ai/v1"
-    orch_model: str = "muse-spark-1.3"
+    orch_model: str = "muse-wonder-1.0"  # fallback muse-spark-1.3 @ max if Wonder unavailable
     worker_model: str = "muse-spark-1.3"
     baseten_api_key: str = ""
     baseten_model: str = "meta-models/muse-spark-open-1026"
