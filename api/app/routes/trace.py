@@ -18,6 +18,7 @@ async def trace(request_id: str, request: Request) -> StreamingResponse:
 
     async def events():
         last_id, idle = 0, 0.0
+        yield ": connected\n\n"  # Cloudflare holds headers until the first body byte
         while not await request.is_disconnected():
             # ponytail: 0.5 s DB poll, switch to LISTEN/NOTIFY if trace latency ever matters
             async with SessionLocal() as s:
