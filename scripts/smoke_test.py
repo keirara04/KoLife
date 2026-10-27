@@ -97,6 +97,7 @@ def check_wonder() -> None:
     status, data, _ = responses(m.WONDER, "minimal", input="Reply with OK", max_output_tokens=50)
     if status == 200:
         cost = m.token_cost(m.WONDER, data["usage"])
+        log(m.WONDER, data["usage"], cost, 0)
         record("wonder", True, cost, "AVAILABLE from here — revisit decision on orchestrator")
     else:
         record("wonder", None, 0, f"HTTP {status} (expected from KR): {str(data)[:120]}")
@@ -184,9 +185,12 @@ def check_sam(image: Path) -> None:
 
 def check_voice() -> None:
     wav = TMP / "hello.wav"
-    subprocess.run(["say", "-v", "Flo", "-o", str(wav), "--file-format=WAVE",
+    subprocess.run(["say", "-v", "Yuna", "-o", str(wav), "--file-format=WAVE",
                     "--data-format=LEI16@16000",
                     "안녕하세요. 건강보험료 납부 기한은 십일월 이십오일입니다."], check=True)
+    if wav.stat().st_size < 16000:  # some voices (Flo, Eddy) silently write empty WAVs
+        record("voice transcribe", False, 0, f"`say` produced near-empty WAV: {wav}")
+        return
     boundary = uuid.uuid4().hex
     req_json = json.dumps({"model": m.VOICE, "audioEncoding": "WAV", "mode": "PUSH_TO_TALK",
                            "languageBias": ["Korean"]})
