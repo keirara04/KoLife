@@ -3,10 +3,12 @@
 services:
   web:
     image: ghcr.io/keirara04/kolife-web:${TAG:-main}
+    pull_policy: always  # :main is a moving tag; without this compose reuses the cached image
     depends_on: [api]
     restart: unless-stopped
   api:
     image: ghcr.io/keirara04/kolife-api:${TAG:-main}
+    pull_policy: always  # :main is a moving tag; without this compose reuses the cached image
     environment: &appenv
       META_API_KEY: ${META_API_KEY}
       META_BASE_URL: ${META_BASE_URL:-https://api.meta.ai/v1}
@@ -21,6 +23,7 @@ services:
     restart: unless-stopped
   worker:
     image: ghcr.io/keirara04/kolife-api:${TAG:-main}
+    pull_policy: always  # :main is a moving tag; without this compose reuses the cached image
     command: arq app.worker.WorkerSettings
     environment: *appenv
     depends_on: [postgres, redis]
