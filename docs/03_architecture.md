@@ -153,13 +153,17 @@ Rules: log `usage` + computed cost for **every** call (`model_calls` table + `lo
 ### Redaction pipeline (every upload)
 1. Upload to private storage (homelab volume / object store), **encrypted**.
 2. **SAM 3.1** finds visual identifiers — one call per concept, in parallel: `"ID card"`, `"face"`, `"QR code"`, `"barcode"`, `"seal"` (KR 도장), `"signature"` → server blurs/blackboxes regions (Pillow/OpenCV) **before any other model call**.
-3. **Text redaction** on extracted text (regex, per locale):
+3. **Text redaction** on text from **local OCR** (Tesseract kor+eng, word boxes; no model reads the raw document) (regex, all locale patterns always run):
    - KR foreign registration number (ARC): `\b\d{6}[-\s]?[5-8]\d{6}\b` (13 digits, 7th digit 5–8 for foreigners). Don't rely on the old checksum — numbers issued since Oct 2020 have random digits.
-   - MY: MyKad/IC pattern, i-Kad number, passport numbers, phone numbers, bank account numbers (both locales).
-4. **Placeholders, not deletion:** `[ARC_1]`, `[PASSPORT_1]`; mapping encrypted server-side; refilled only in what the user sees.
+   - MY: MyKad/IC pattern, passport numbers, personal mobile numbers. **Not** bank accounts (payee 가상계좌 must stay readable), office landlines, amounts, dates (Keira, Oct 27). i-Kad number format: TODO.
+   - Matched spans → OCR word boxes → black rectangles; then a **second OCR pass on the output fails closed** if any ID is still OCR-readable (catches split lines / bad boxes, **not** OCR misreads like 5→S) → the user preview (step 7) is the real backstop, never drop it.
+   - `RedactedDoc.text` is gate input (Tesseract splits Korean syllables: '국 민 건 강'), **not** what Spark reads as the document — Spark reads the redacted image; text is for counts/audit/hints.
+4. **Placeholders, not deletion:** `[ARC_1]`, `[PASSPORT_1]`; **mapping is not stored** (we don't keep ID numbers; the user sees their own original on-device).
+   Built Oct 27: `app/redaction` → `redact_document(image, request_id) -> RedactedDoc(image_png, text, counts, payload_hash)`; SAM concepts face / QR code / barcode / signature / seal stamp ("ID card" dropped: can swallow a whole bill); images upright (EXIF) + ≤2000 px, SAM gets JPEG (≈3× faster than PNG). Synthetic fixture `api/tests/fixtures/nhis_bill_synthetic.png`.
 5. Only then do Wonder/Spark/Spark Open see content.
 6. **Audit log:** hash of each model payload + redaction counts ("2 IDs, 1 face blurred"), not the raw prompt. User-visible **"what left your device"** view.
 7. User confirms the blurred preview (fallback if SAM misses something).
+   Built Oct 27: `POST /api/documents` (raw image body, no multipart; redacts in-request ~6 s; stores only the redacted PNG in `documents`, status `pending`) → `GET /api/documents/{id}/image` (no-store) → `POST …/confirm` or `DELETE` (retake). Doc id = `request_id` of every model call about it (trace + audit join). Gate: `app.redaction.require_confirmed(doc_id)` is the only way a document reaches a model; consumers log `record_call(meta=audit_meta(doc_id, doc))` = doc_id + payload_hash + redaction_counts. Deferred: envelope encryption of stored redacted PNGs + 7-day purge; auth (uuid id is the capability for now).
 
 ### Storage & retention
 - Envelope encryption: data key per user wrapped by a master key from env/secret store; AES-GCM for documents/transcripts.
